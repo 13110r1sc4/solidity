@@ -11,7 +11,7 @@ import "./priceConverter.sol";
 contract FundMe {
     using PriceConverter for uint256;
 
-    uint256 public constant MINIMUM_USD = 50 * 1e18; // USING CONSTANT SAVE GAS
+    uint256 public constant MINIMUM_USD = 20 * 1e18; // USING CONSTANT SAVE GAS
 
     address[] public funders;
     mapping(address => uint256) public addressToAmountFunded;
