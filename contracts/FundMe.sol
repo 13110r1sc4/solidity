@@ -6,25 +6,27 @@ pragma solidity ^0.8.22;
 
 import "./priceConverter.sol";
 
+// constant keyword, immutable keyword
+
 contract FundMe {
     using PriceConverter for uint256;
 
-    uint256 public minimumUsd = 50 * 1e18;
+    uint256 public constant MINIMUM_USD = 50 * 1e18; // USING CONSTANT SAVE GAS
 
     address[] public funders;
     mapping(address => uint256) public addressToAmountFunded;
 
-    address public owner;
+    address public immutable i_owner;
 
     constructor(){
-        owner = msg.sender;
+        i_owner = msg.sender;
 
     }
 
     function fund() public payable { // payable is required when we want to send tokens with a fun
         // set min fund value in USD
         // 1. How to send ETH to this contract? contracts can hold funds as wallets
-        require(msg.value.getConversionRate() >= minimumUsd, "Didn't send enough"); // in wei
+        require(msg.value.getConversionRate() >= MINIMUM_USD, "Didn't send enough"); // in wei
         funders.push(msg.sender); // msg.sender is the address of whatever alls the function
         addressToAmountFunded[msg.sender] = msg.value;
     }
@@ -32,7 +34,7 @@ contract FundMe {
     
     function withdraw() public onlyOwner {
 
-        for(uint256 funderIndex = 0; funderIndex < funders.length; funderIndex = funderIndex++){
+        for(uint256 funderIndex = 0; funderIndex < funders.length; funderIndex++){
             address funder = funders[funderIndex];
             addressToAmountFunded[funder] = 0;
         }
@@ -51,7 +53,7 @@ contract FundMe {
     }
 
     modifier onlyOwner {
-        require(msg.sender == owner, "Sender is not owner");
+        require(msg.sender == i_owner, "Sender is not owner");
         _; // do the require and then the rest of the code for the fucntion
     }
 
