@@ -1,62 +1,87 @@
 // SPDX-License-Identifier: MIT
 
-// there are several global vars like msg.value that we can access always
+pragma solidity ^0.8.23;
 
-pragma solidity ^0.8.22;
-
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "./priceConverter.sol";
 
-// constant keyword, immutable keyword
+error NotOwner();
 
 contract FundMe {
     using PriceConverter for uint256;
 
-    uint256 public constant MINIMUM_USD = 20 * 1e18; // USING CONSTANT SAVE GAS
-
-    address[] public funders;
     mapping(address => uint256) public addressToAmountFunded;
+    address[] public funders;
 
-    address public immutable i_owner;
-
-    constructor(){
+    // Could we make this constant?  /* hint: no! We should make it immutable! */
+    address public /* immutable */ i_owner;
+    uint256 public constant MINIMUM_USD = 50 * 10 ** 18;
+    
+    constructor() {
         i_owner = msg.sender;
-
     }
 
-    function fund() public payable { // payable is required when we want to send tokens with a fun
-        // set min fund value in USD
-        // 1. How to send ETH to this contract? contracts can hold funds as wallets
-        require(msg.value.getConversionRate() >= MINIMUM_USD, "Didn't send enough"); // in wei
-        funders.push(msg.sender); // msg.sender is the address of whatever alls the function
-        addressToAmountFunded[msg.sender] = msg.value;
+    function fund() public payable {
+        require(msg.value.getConversionRate() >= MINIMUM_USD, "You need to spend more ETH!");
+        // require(PriceConverter.getConversionRate(msg.value) >= MINIMUM_USD, "You need to spend more ETH!");
+        addressToAmountFunded[msg.sender] += msg.value;
+        funders.push(msg.sender);
     }
-    //
+    
+    function getVersion() public view returns (uint256){
+        // ETH/USD price feed address of Sepolia Network.
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(0x694AA1769357215DE4FAC081bf1f309aDC325306);
+        return priceFeed.version();
+    }
+    
+    modifier onlyOwner {
+        // require(msg.sender == owner);
+        if (msg.sender != i_owner) revert NotOwner();
+        _;
+    }
     
     function withdraw() public onlyOwner {
-
-        for(uint256 funderIndex = 0; funderIndex < funders.length; funderIndex++){
+        for (uint256 funderIndex=0; funderIndex < funders.length; funderIndex++){
             address funder = funders[funderIndex];
             addressToAmountFunded[funder] = 0;
         }
-        // reset the array
         funders = new address[](0);
-        // withdraw funds
-
-        // 1. transfer
+        // // transfer
         // payable(msg.sender).transfer(address(this).balance);
-        // 2. send
+        // // send
         // bool sendSuccess = payable(msg.sender).send(address(this).balance);
         // require(sendSuccess, "Send failed");
-        // 3. call
+        // call
         (bool callSuccess, ) = payable(msg.sender).call{value: address(this).balance}("");
         require(callSuccess, "Call failed");
     }
+    // Explainer from: https://solidity-by-example.org/fallback/
+    // Ether is sent to contract
+    //      is msg.data empty?
+    //          /   \ 
+    //         yes  no
+    //         /     \
+    //    receive()?  fallback() 
+    //     /   \ 
+    //   yes   no
+    //  /        \
+    //receive()  fallback()
 
-    modifier onlyOwner {
-        require(msg.sender == i_owner, "Sender is not owner");
-        _; // do the require and then the rest of the code for the fucntion
+    fallback() external payable {
+        fund();
     }
 
-    
-// REVERT: undo any activity before, and send remaining gas fee. require: if condition is false, revertthe action in the function
+    receive() external payable {
+        fund();
+    }
+
 }
+
+// Concepts we didn't cover yet (will cover in later sections)
+// 1. Enum
+// 2. Events
+// 3. Try / Catch
+// 4. Function Selector
+// 5. abi.encode / decode
+// 6. Hash with keccak256
+// 7. Yul / Assembly
